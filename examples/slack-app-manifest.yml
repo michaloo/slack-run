@@ -1,0 +1,29 @@
+# Create the Slack app from this manifest (api.slack.com/apps → Create New App → From a manifest),
+# then: Basic Information → App-Level Tokens → generate one with connections:write (xapp-…),
+# and Install App → copy the Bot User OAuth Token (xoxb-…).
+display_information:
+  name: slack-run
+features:
+  bot_user:
+    display_name: slack-run
+    always_online: true
+  app_home:
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read     # mentions
+      - chat:write            # replies
+      - reactions:write       # progress reactions
+      - im:history            # direct messages (event: dm)
+      - channels:history      # plain channel messages (event: message), optional
+      - groups:history        # same, private channels, optional
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
+      - message.channels
+      - message.groups
+  socket_mode_enabled: true

@@ -1,0 +1,16 @@
+# ~/.config/systemd/user/slack-run.service — then: systemctl --user enable --now slack-run
+[Unit]
+Description=slack-run (Slack messages -> commands)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/.config/slack-run
+EnvironmentFile=%h/.config/slack-run/env
+# PATH must include the commands your rules run (e.g. casm in ~/.local/bin).
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node %h/Explorations/slack-run/src/main.ts serve --config slack-run.yaml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

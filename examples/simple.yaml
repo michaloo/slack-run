@@ -1,0 +1,14 @@
+slack:
+  appToken: ${SLACK_APP_TOKEN}
+  botToken: ${SLACK_BOT_TOKEN}
+rules:
+  - name: disk space
+    on: { event: dm, users: [U0123456], match: '^df$' }
+    steps: [{ run: df -h / }]
+  - name: deploy
+    on: { event: mention, channels: [C0123456], users: [U0123456], match: '^deploy (?<env>staging|prod)$' }
+    steps:
+      - run: ./scripts/deploy.sh {env}
+        cwd: /srv/app
+        timeout: 15m
+    reactions: { start: rocket, done: white_check_mark, error: x }

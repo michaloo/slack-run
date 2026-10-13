@@ -1,0 +1,26 @@
+# Slack → casm coding agents. One agent per Slack thread: the first mention
+# creates it, follow-ups in the thread go to the same agent.
+slack:
+  appToken: ${SLACK_APP_TOKEN}
+  botToken: ${SLACK_BOT_TOKEN}
+state: state.json
+
+rules:
+  - name: new agent per thread
+    on: { event: mention, users: [U0123456], thread: new }      # your Slack user id(s)
+    steps:
+      - run: casm run --project Explorations --provider claude --model haiku "{text}"
+        capture: { agent: '^([0-9a-f-]{36})$' }                  # casm run prints the new agent's id
+      - run: casm wait {agent}
+        timeout: 2h
+    reactions: { start: eyes, done: white_check_mark, error: x, exit3: raised_hand, exit4: hourglass_flowing_sand }
+
+  - name: follow-up in the thread
+    on: { event: mention, users: [U0123456], thread: existing }
+    steps:
+      - run: casm send {agent} "{text}" --wait
+        timeout: 2h
+    reactions: { start: eyes, done: white_check_mark, error: x, exit3: raised_hand, exit4: hourglass_flowing_sand }
+
+  # casm exit codes: 3 = the agent waits for a permission or answer (answer in the casm app),
+  # 4 = deferred by a usage limit; it continues by itself after the reset.
