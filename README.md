@@ -52,6 +52,14 @@ each argument afterwards. Commands run without a shell, so Slack text can't inje
 Every rule must list `users` (or opt into `anyone: true`), because these commands run on your
 machine.
 
+**Other bots**: messages from bots are ignored, except bot users listed in `bots.users` (they
+must also match a rule's `users`). `bots.perThread` (default 3) caps the runs bots can start in one
+thread, so two bots can't keep answering each other.
+
+```yaml
+bots: { users: [U0BOTUSER], perThread: 3 }
+```
+
 **Threads**: runs in the same thread are serialised. Retried Slack deliveries are ignored. Long
 replies are split into several messages.
 

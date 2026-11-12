@@ -30,6 +30,10 @@ export type Rule = {
 export type Config = {
   slack: { appToken: string; botToken: string };
   state?: string;
+  // Other bots whose messages may trigger rules (they must also be in a rule's
+  // on.users). perThread caps runs started by bots in one thread, so two bots
+  // can't keep answering each other.
+  bots?: { users: string[]; perThread?: number };
   rules: Rule[];
 };
 
@@ -47,6 +51,9 @@ export function parseConfig(text: string, { requireTokens = true } = {}): Config
     if (!c?.slack?.appToken?.startsWith("xapp-")) errors.push("slack.appToken must be an app-level token (xapp-…) with connections:write");
     if (!c?.slack?.botToken?.startsWith("xoxb-")) errors.push("slack.botToken must be a bot token (xoxb-…)");
   }
+  if (c?.bots && (!Array.isArray(c.bots.users) || !c.bots.users.length)) errors.push("bots.users: list at least one bot user id");
+  if (c?.bots?.perThread !== undefined && !(Number.isInteger(c.bots.perThread) && c.bots.perThread > 0))
+    errors.push("bots.perThread must be a positive integer");
   if (!Array.isArray(c?.rules) || !c.rules.length) errors.push("rules: at least one rule is needed");
   for (const [i, r] of (c?.rules ?? []).entries()) {
     const at = `rules[${i}]${r?.name ? ` (${r.name})` : ""}`;

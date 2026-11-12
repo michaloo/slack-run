@@ -104,6 +104,20 @@ test("Slack events become messages; bots, edits and duplicate mentions are ignor
   assert.equal(toMessage({ ...base, type: "message", channel_type: "im", text: "hello", thread_ts: "0.5" }, "UBOT")?.kind, "dm");
 });
 
+test("allowed bots get through, marked as bots; other bots don't", () => {
+  const ev = { channel: "C1", ts: "1.0", type: "app_mention", bot_id: "B1", text: "<@UBOT> hi" };
+  assert.deepEqual(toMessage({ ...ev, user: "UJANUSZ" }, "UBOT", new Set(["UJANUSZ"])), { ...msg({ text: "hi", ts: "1.0", thread: "1.0", user: "UJANUSZ" }), bot: true });
+  assert.equal(toMessage({ ...ev, user: "UOTHER" }, "UBOT", new Set(["UJANUSZ"])), null);
+  assert.equal(toMessage({ ...ev, user: "UJANUSZ", subtype: "bot_message" }, "UBOT", new Set(["UJANUSZ"])), null);
+});
+
+test("bots config is validated", () => {
+  const base = `slack: {appToken: xapp-1, botToken: xoxb-1}\nrules: [{name: r, on: {anyone: true}, steps: [{run: echo}]}]\n`;
+  assert.ok(parseConfig(base + "bots: {users: [U1], perThread: 2}"));
+  assert.throws(() => parseConfig(base + "bots: {users: []}"), /bots.users/);
+  assert.throws(() => parseConfig(base + "bots: {users: [U1], perThread: 0}"), /perThread/);
+});
+
 test("long replies are split, preferring newlines", () => {
   const text = Array.from({ length: 300 }, (_, i) => `line ${i} ${"x".repeat(20)}`).join("\n");
   const parts = chunks(text, 1000);

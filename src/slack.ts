@@ -33,15 +33,18 @@ type SlackEvent = {
   thread_ts?: string;
 };
 
-// Turns a Slack event into a Message, or null for ones to ignore (bots, edits,
-// and channel messages that are mentions, which arrive as app_mention too).
-export function toMessage(e: SlackEvent, botUser: string): Message | null {
-  if (e.bot_id || e.subtype || !e.user || e.user === botUser) return null;
+// Turns a Slack event into a Message, or null for ones to ignore (bots not in
+// allowBots, edits, and channel messages that are mentions, which arrive as
+// app_mention too).
+export function toMessage(e: SlackEvent, botUser: string, allowBots: ReadonlySet<string> = new Set()): Message | null {
+  if (e.subtype || !e.user || e.user === botUser) return null;
+  const bot = Boolean(e.bot_id);
+  if (bot && !allowBots.has(e.user)) return null;
   const mention = `<@${botUser}>`;
   const kind: Message["kind"] = e.type === "app_mention" ? "mention" : e.channel_type === "im" ? "dm" : "message";
   if (kind === "message" && e.text?.includes(mention)) return null;
   const text = (e.text ?? "").replaceAll(mention, "").trim();
-  return { kind, text, user: e.user, channel: e.channel, ts: e.ts, thread: e.thread_ts ?? e.ts };
+  return { kind, text, user: e.user, channel: e.channel, ts: e.ts, thread: e.thread_ts ?? e.ts, ...(bot && { bot }) };
 }
 
 export async function serve(config: Config, state: ThreadState, log: (s: string) => void) {
@@ -52,6 +55,9 @@ export async function serve(config: Config, state: ThreadState, log: (s: string)
   const sm = new SocketModeClient({ appToken: config.slack.appToken });
   const seen = new Set<string>();
   const threads = new Map<string, Promise<unknown>>();
+  const allowBots = new Set(config.bots?.users ?? []);
+  const botLimit = config.bots?.perThread ?? 3;
+  const botRuns = new Map<string, number>();
 
   const onEvent = async ({ event, body, ack }: { event: SlackEvent; body: { event_id?: string }; ack: () => Promise<void> }) => {
     await ack();
@@ -61,9 +67,15 @@ export async function serve(config: Config, state: ThreadState, log: (s: string)
       seen.add(body.event_id);
       if (seen.size > 2000) seen.delete(seen.values().next().value!);
     }
-    const m = toMessage(event, botUser);
+    const m = toMessage(event, botUser, allowBots);
     if (!m) return;
     const key = `${m.channel}:${m.thread}`;
+    if (m.bot) {
+      const n = botRuns.get(key) ?? 0;
+      if (n >= botLimit) return log(`bot ${m.user}: ${key} reached ${botLimit} bot-started runs, ignoring`);
+      botRuns.set(key, n + 1);
+      if (botRuns.size > 2000) botRuns.delete(botRuns.keys().next().value!);
+    }
     // One run at a time per thread, in arrival order.
     const run = (threads.get(key) ?? Promise.resolve()).then(() =>
       handle(config, m, state, {

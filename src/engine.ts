@@ -13,6 +13,8 @@ export type Message = {
   ts: string;
   // The thread this belongs to: thread_ts, or ts for a new top-level message.
   thread: string;
+  // Sent by an allowed bot (config.bots) rather than a person.
+  bot?: boolean;
 };
 
 export type StepResult = { argv: string[]; code: number; stdout: string; stderr: string; timedOut: boolean };
